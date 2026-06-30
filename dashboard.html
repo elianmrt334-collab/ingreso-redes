@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Gerencial - COOSAJO</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root { --azul: #172e59; --verde: #158e45; --blanco: #ffffff; --fondo: #f0f4f8; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--fondo); margin: 0; padding: 20px; color: #333; }
+        
+        .header { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; position: relative; }
+        .btn-volver { position: absolute; left: 0; top: 10px; background: var(--azul); color: white; padding: 10px 15px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+        .logo { max-width: 180px; margin-bottom: 10px; }
+        
+        .barra-herramientas { background: var(--blanco); padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .filtros-grupo { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .filtro-item { display: flex; flex-direction: column; gap: 5px; }
+        .filtro-item label { font-weight: bold; color: var(--azul); font-size: 0.9rem; }
+        select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; min-width: 150px; }
+        
+        .btn-pdf { background-color: #e74c3c; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; height: fit-content; align-self: flex-end; }
+        .btn-pdf:hover { background-color: #c0392b; }
+
+        #area-reporte { background: transparent; padding: 10px; margin: 0 auto; box-sizing: border-box; width: 100%; max-width: 1000px; }
+        
+        .card { background: var(--blanco); padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #eaeaea; }
+        .banner-total { background: linear-gradient(135deg, var(--azul), #2a4b8d); color: white; text-align: center; padding: 30px; border-radius: 12px; }
+        .monto-total { font-size: 3.5rem; font-weight: bold; margin: 10px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+
+        .grid-graficas { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        .grafica-contenedor { height: 400px; display: flex; justify-content: center; position: relative; width: 100%; background: white; padding: 10px; box-sizing: border-box;}
+
+        @media (min-width: 800px) { .grid-graficas { grid-template-columns: 1fr 1fr; } .grafica-contenedor { height: 350px; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button id="btnLogout" style="position: absolute; right: 0; top: 10px; background: #e74c3c; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; display: none;">Cerrar Sesión</button>
+        <a href="index.html" class="btn-volver">← Volver</a>
+        <img src="logo.png" alt="COOSAJO" class="logo" onerror="this.style.display='none'">
+        <h1 style="color: var(--azul);">Reporte de Producción y Ahorro</h1>
+        <p id="user-display" style="color: var(--verde); font-weight: bold; margin-top: 5px;"></p>
+    </div>
+
+    <div class="barra-herramientas">
+        <div class="filtros-grupo">
+            <div class="filtro-item">
+                <label>Semana:</label>
+                <input type="week" id="filtroSemana" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem;">
+            </div>
+
+            <div class="filtro-item">
+                <label>Mes de producción:</label>
+                <select id="filtroMes">
+                    <option value="TODO">Todo el año</option>
+                    <option value="Enero">Enero</option><option value="Febrero">Febrero</option><option value="Marzo">Marzo</option>
+                    <option value="Abril">Abril</option><option value="Mayo">Mayo</option><option value="Junio">Junio</option>
+                    <option value="Julio">Julio</option><option value="Agosto">Agosto</option><option value="Septiembre">Septiembre</option>
+                    <option value="Octubre">Octubre</option><option value="Noviembre">Noviembre</option><option value="Diciembre">Diciembre</option>
+                </select>
+            </div>
+
+            <div class="filtro-item">
+                <label>Proyecto / Evento:</label>
+                <select id="filtroActividad">
+                    <option value="TODO">Todas las actividades</option>
+                    <option value="Coosajo">Coosajo</option>
+                    <option value="MiPequeñaAsamblea">MiPequeñaAsamblea</option>
+                    <option value="Asamblea General">Asamblea General</option>
+                    <option value="21k">21k</option>
+                    <option value="EJES">EJES</option>
+                </select>
+            </div>
+
+            <div class="filtro-item">
+                <label>Usuario (Agente):</label>
+                <select id="filtroUsuario">
+                    <option value="TODO">Todos los agentes</option>
+                    <option value="sjnramirez@micoope.coosajo.com">Noé Ramírez</option>
+                    <option value="sjemartinez@micoope.coosajo.com">Eiián Martínez</option>
+                    <option value="sjmsalazar@micoope.coosajo.com">Marco Salazar</option>
+                    <option value="sjjardon@micoope.coosajo.com">Jorge Ardón</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="getPDF" class="btn-pdf">📄 Generar PDF Oficial</button>
+    </div>
+
+    <div id="area-reporte">
+        <div class="card banner-total">
+            <h2 style="margin:0; opacity: 0.9; font-size: 1.2rem; text-transform: uppercase;">AHORRO TOTAL ESTIMADO IN-HOUSE</h2>
+            <div class="monto-total" id="granTotal">Q 0.00</div>
+            <p id="labelFiltro" style="margin:0; font-weight: bold; font-size: 1.1rem;">Resumen General Acumulado</p>
+        </div>
+
+        <div class="grid-graficas">
+            <div class="card">
+                <h3 style="text-align:center; color: var(--azul); margin-top: 0;">Distribución Ahorro (Sin Ejes)</h3>
+                <div class="grafica-contenedor"><canvas id="chartDona"></canvas></div>
+            </div>
+            <div class="card">
+                <h3 style="text-align:center; color: var(--azul); margin-top: 0;">Volumen de Producción (Sin Ejes)</h3>
+                <div class="grafica-contenedor"><canvas id="chartBarras"></canvas></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="text-align:center; color: #e67e22; margin-top: 0;">Volumen de Posts por Eje Estratégico</h3>
+            <div class="grafica-contenedor"><canvas id="chartEjes"></canvas></div>
+        </div>
+
+        <div class="card" id="card-detalles-graficos" style="display: none;">
+            <h3 style="text-align:center; color: var(--azul); margin-top: 0;">Detalles de "Diseños Gráficos Generales"</h3>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: #f0f4f8; border-bottom: 2px solid #ccc;">
+                            <th style="padding: 10px;">Fecha / Semana</th>
+                            <th style="padding: 10px;">Agente</th>
+                            <th style="padding: 10px;">Proyecto</th>
+                            <th style="padding: 10px;">Descripción</th>
+                            <th style="padding: 10px;">Cant.</th>
+                            <th style="padding: 10px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-graficos">
+                        <!-- Filas dinámicas -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyACfn6C6_XqLDQI29f6uHUUwlCQkSCXNYk",
+            authDomain: "costos-comunicacion-digital.firebaseapp.com",
+            projectId: "costos-comunicacion-digital",
+            storageBucket: "costos-comunicacion-digital.firebasestorage.app",
+            messagingSenderId: "299496606379",
+            appId: "1:299496606379:web:a4d6609ff79eebff0c85ee"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('user-display').innerText = `Agente: ${user.email}`;
+                document.getElementById('btnLogout').style.display = 'block';
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        let gDona, gBarras, gEjes, datosBase = [];
+
+        const pluginFondoBlanco = {
+            id: 'customCanvasBackgroundColor',
+            beforeDraw: (chart, args, options) => {
+                const {ctx} = chart;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = options.color || '#ffffff';
+                ctx.fillRect(0, 0, chart.width, chart.height);
+                ctx.restore();
+            }
+        };
+
+        onSnapshot(collection(db, "costos_publicidad"), (snap) => {
+            datosBase = snap.docs.map(d => d.data());
+            procesarUI();
+        });
+
+        document.getElementById('filtroSemana').addEventListener('change', procesarUI);
+        document.getElementById('filtroMes').addEventListener('change', procesarUI);
+        document.getElementById('filtroActividad').addEventListener('change', procesarUI);
+        document.getElementById('filtroUsuario').addEventListener('change', procesarUI);
+
+        function procesarUI() {
+            const fSemana = document.getElementById('filtroSemana').value;
+            const fMes = document.getElementById('filtroMes').value;
+            const fActividad = document.getElementById('filtroActividad').value;
+            const fUsuario = document.getElementById('filtroUsuario').value;
+            
+            let textoFiltro = "Filtros aplicados: ";
+            let partes = [];
+            if (fSemana) partes.push(`Semana: ${fSemana}`);
+            if (fMes !== "TODO") partes.push(`Mes: ${fMes}`);
+            if (fActividad !== "TODO") partes.push(`Act: ${fActividad}`);
+            if (fUsuario !== "TODO") partes.push(`Usr: ${document.getElementById('filtroUsuario').options[document.getElementById('filtroUsuario').selectedIndex].text}`);
+            
+            if (partes.length === 0) textoFiltro = "Resumen General Acumulado";
+            else textoFiltro += partes.join(" | ");
+            
+            document.getElementById('labelFiltro').innerText = textoFiltro;
+            
+            let filtrados = datosBase;
+            
+            if (fSemana) filtrados = filtrados.filter(d => d.semana === fSemana);
+            if (fMes !== "TODO") filtrados = filtrados.filter(d => d.mes === fMes);
+            if (fActividad !== "TODO") filtrados = filtrados.filter(d => d.marca === fActividad);
+            if (fUsuario !== "TODO") filtrados = filtrados.filter(d => d.usuario === fUsuario);
+            
+            let totalGeneral = 0;
+            const qPorServicio = {}, cPorServicio = {};
+            const cPorEje = {};
+
+            const listaEjes = ['Comercialización', 'Vinculación', 'Educación'];
+
+            filtrados.forEach(r => {
+                totalGeneral += r.total; // Sumar el dinero de TODO (incluyendo Ejes)
+
+                // Separar la data
+                if (listaEjes.includes(r.servicio)) {
+                    // Si es un Eje, sumarlo a la gráfica nueva
+                    cPorEje[r.servicio] = (cPorEje[r.servicio] || 0) + r.cantidad;
+                } else {
+                    // Si es normal, sumarlo a las gráficas principales
+                    qPorServicio[r.servicio] = (qPorServicio[r.servicio] || 0) + r.total;
+                    cPorServicio[r.servicio] = (cPorServicio[r.servicio] || 0) + r.cantidad;
+                }
+            });
+
+            // Llenar tabla de detalles de "Diseños Gráficos Generales"
+            const tablaGraficos = document.getElementById('tabla-graficos');
+            const cardDetalles = document.getElementById('card-detalles-graficos');
+            tablaGraficos.innerHTML = '';
+            
+            const graficosGenerales = filtrados.filter(d => d.servicio === 'Diseños Gráficos Generales');
+            
+            if (graficosGenerales.length > 0) {
+                cardDetalles.style.display = 'block';
+                graficosGenerales.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #eaeaea';
+                    
+                    let fechaStr = item.semana || item.mes || '-';
+                    if (item.fecha_registro && item.fecha_registro.toDate) {
+                        fechaStr = item.fecha_registro.toDate().toLocaleDateString('es-GT');
+                    }
+                    
+                    const usuarioStr = item.usuario ? item.usuario.split('@')[0] : 'N/A';
+                    const descripcionStr = item.descripcion ? item.descripcion : '<i>Sin descripción</i>';
+                    
+                    tr.innerHTML = `
+                        <td style="padding: 8px;">${fechaStr}</td>
+                        <td style="padding: 8px; color: var(--azul); font-weight: bold;">${usuarioStr}</td>
+                        <td style="padding: 8px;">${item.marca}</td>
+                        <td style="padding: 8px;">${descripcionStr}</td>
+                        <td style="padding: 8px; text-align: center;">${item.cantidad}</td>
+                        <td style="padding: 8px; color: var(--verde); font-weight: bold;">Q ${item.total.toLocaleString('es-GT', {minimumFractionDigits: 2})}</td>
+                    `;
+                    tablaGraficos.appendChild(tr);
+                });
+            } else {
+                cardDetalles.style.display = 'none';
+            }
+
+            document.getElementById('granTotal').innerText = `Q ${totalGeneral.toLocaleString('es-GT', {minimumFractionDigits: 2})}`;
+
+            // Gráfica de Dona (Normal)
+            if (gDona) gDona.destroy();
+            gDona = new Chart(document.getElementById('chartDona'), {
+                type: 'doughnut',
+                data: { 
+                    labels: Object.keys(qPorServicio), 
+                    datasets: [{ data: Object.values(qPorServicio), backgroundColor: ['#172e59','#158e45','#f1c40f','#e67e22','#3498db','#9b59b6','#e74c3c', '#34495e', '#16a085', '#d35400', '#27ae60', '#8e44ad'] }] 
+                },
+                plugins: [pluginFondoBlanco],
+                options: { maintainAspectRatio: false, responsive: true, plugins: { customCanvasBackgroundColor: { color: 'white' }, legend: { position: 'bottom' } } }
+            });
+
+            // Gráfica de Barras (Normal)
+            if (gBarras) gBarras.destroy();
+            gBarras = new Chart(document.getElementById('chartBarras'), {
+                type: 'bar',
+                data: { 
+                    labels: Object.keys(cPorServicio), 
+                    datasets: [{ label: 'Archivos producidos', data: Object.values(cPorServicio), backgroundColor: '#158e45' }] 
+                },
+                plugins: [pluginFondoBlanco],
+                options: { maintainAspectRatio: false, responsive: true, indexAxis: 'y', plugins: { customCanvasBackgroundColor: { color: 'white' }, legend: { display: false } } }
+            });
+
+            // TERCERA GRÁFICA (Ejes Estratégicos)
+            if (gEjes) gEjes.destroy();
+            gEjes = new Chart(document.getElementById('chartEjes'), {
+                type: 'pie',
+                data: { 
+                    labels: Object.keys(cPorEje), 
+                    datasets: [{ data: Object.values(cPorEje), backgroundColor: ['#f39c12', '#d35400', '#c0392b'] }] 
+                },
+                plugins: [pluginFondoBlanco],
+                options: { maintainAspectRatio: false, responsive: true, plugins: { customCanvasBackgroundColor: { color: 'white' }, legend: { position: 'bottom' } } }
+            });
+        }
+
+        // GENERACIÓN DE PDF
+        document.getElementById('getPDF').addEventListener('click', () => {
+            const botonPDF = document.getElementById('getPDF');
+            botonPDF.innerText = "Construyendo documento...";
+            botonPDF.disabled = true;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'in', 'letter');
+                const anchoCentro = 4.25; 
+
+                const textoSubtitulo = document.getElementById('labelFiltro').innerText;
+                const textoTotal = document.getElementById('granTotal').innerText;
+
+                // PAG 1: Resumen y Dona
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(18);
+                doc.setTextColor(23, 46, 89);
+                doc.text("Reporte de Producción y Ahorro", anchoCentro, 1, { align: "center" });
+
+                doc.setFontSize(14);
+                doc.setTextColor(100, 100, 100);
+                doc.text("AHORRO TOTAL ESTIMADO IN-HOUSE", anchoCentro, 1.5, { align: "center" });
+
+                doc.setFontSize(35);
+                doc.setTextColor(21, 142, 69);
+                doc.text(textoTotal, anchoCentro, 2.2, { align: "center" });
+
+                doc.setFontSize(12);
+                doc.setTextColor(50, 50, 50);
+                doc.text(textoSubtitulo, anchoCentro, 2.6, { align: "center" });
+
+                const imgDona = gDona.toBase64Image('image/png', 1);
+                doc.addImage(imgDona, 'PNG', 0.75, 3.5, 7, 5); 
+
+                // PAG 2: Barras
+                doc.addPage();
+                doc.setFontSize(16);
+                doc.setTextColor(23, 46, 89);
+                doc.text("Volumen de Producción (Sin Ejes)", anchoCentro, 1, { align: "center" });
+                const imgBarras = gBarras.toBase64Image('image/png', 1);
+                doc.addImage(imgBarras, 'PNG', 0.5, 1.5, 7.5, 6);
+
+                // PAG 3: Ejes
+                doc.addPage();
+                doc.setFontSize(16);
+                doc.setTextColor(230, 126, 34); // Naranja para diferenciar
+                doc.text("Volumen de Producción por Ejes Estratégicos", anchoCentro, 1, { align: "center" });
+                const imgEjes = gEjes.toBase64Image('image/png', 1);
+                doc.addImage(imgEjes, 'PNG', 0.75, 1.5, 7, 5);
+
+                const fSemana = document.getElementById('filtroSemana').value;
+                const fMes = document.getElementById('filtroMes').value;
+                const fActividad = document.getElementById('filtroActividad').value;
+                const fUsuario = document.getElementById('filtroUsuario').value;
+                let nombreArchivo = `Reporte_COOSAJO`;
+                if (fSemana) nombreArchivo += `_${fSemana}`;
+                if (fMes !== "TODO") nombreArchivo += `_${fMes}`;
+                if (fActividad !== "TODO") nombreArchivo += `_${fActividad}`;
+                if (fUsuario !== "TODO") {
+                    const usrText = document.getElementById('filtroUsuario').options[document.getElementById('filtroUsuario').selectedIndex].text.replace(/\s+/g, '');
+                    nombreArchivo += `_${usrText}`;
+                }
+                nombreArchivo += `.pdf`;
+
+                doc.save(nombreArchivo);
+
+            } catch (error) {
+                console.error("Error al generar PDF:", error);
+                alert("Hubo un error al generar el documento.");
+            } finally {
+                botonPDF.innerText = "📄 Generar PDF Oficial";
+                botonPDF.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
